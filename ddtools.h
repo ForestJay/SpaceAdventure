@@ -26,11 +26,10 @@ HRESULT DDCreateFakeFlipper( LPDIRECTDRAW,
                              LPDIRECTDRAWSURFACE*,
                              LPDIRECTDRAWSURFACE* );
 HRESULT DDWinConfigure( LPDIRECTDRAW lpDD,
-                        LPDIRECTDRAWSURFACE*,
-                        LPDIRECTDRAWSURFACE*,
-                        LPDIRECTDRAWCLIPPER*,
-						LPDIRECTDRAWSURFACE*,
-                        HWND );
+                        LPDIRECTDRAWSURFACE* lplpDDSPrimary,
+                        LPDIRECTDRAWSURFACE* lplpDDSBack,
+                        LPDIRECTDRAWCLIPPER* lplpDDClipper,
+                        HWND hWnd );
 HRESULT DDFillSurface( LPDIRECTDRAWSURFACE , DWORD );
 HRESULT DDTextOut ( LPDIRECTDRAWSURFACE,
 							char*, COLORREF, COLORREF, int, int );

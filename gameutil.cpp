@@ -101,6 +101,7 @@ static double      Diry[40] =
 // Globals
 
 DWORD					g_dwFrameTime = 0;	
+DWORD					g_dwSyncTime = 0;
 DWORD					g_dwFrames = 0;
 DWORD					g_dwFrameCount = 0;
 
@@ -165,17 +166,94 @@ void CleanUp( void )
 //This will be run at initialization
 bool GameInit( void )
 {
-	// Create a queue for the sprites
 	InitLinkedList();
 
-	//Make the player
-	g_Players[0].lpNode = CreateShip( 100, 100, 0, 0, 0, 0 );
+    if ( !CreateGamePlayer() )
+	{
+		return TRUE;
+	}
+
+	if ( g_bHost )
+	{
+		// We are being initialized by the host, so just
+		// create a new ship. Otherwise, do nothing.
+		FillPlayerSlot( FindPlayerSlot(), g_dpPlayerID );
+	}
 
     return TRUE;
 }
 
+// Find a player slot
+BYTE FindPlayerSlot( void )
+{
+	BYTE	i;
+
+	// loop through slots
+	for ( i = 0; i < 4; i++ )
+	{
+		if ( g_Players[i].dwStatus == 0 )
+		{
+			return i;
+		}
+	}
+	return 0xFF;
+}
+
+// Fill a player slot
+void FillPlayerSlot( BYTE i, DPID dpID )
+{
+	int		offset;
+	double	x, y;
+
+	switch( i )
+	{
+		case 0:
+			x = 100;
+			y = 100;
+		break;
+		case 1:
+			x = 540;
+			y = 380;
+		break;
+		case 2:
+			x = 540;
+			y = 100;
+		break;
+		case 3:
+			x = 100;
+			y = 380;
+		break;
+	}
+	offset = i * 40;
+	// Create the ship
+	g_Players[i].lpNode = CreateShip( x, y, 0, 0, offset, 0, TRUE );
+	g_Players[i].dwStatus = 1;
+	g_Players[i].dpID = dpID;
+}
+
+// Empty a player slot
+BYTE EmptyPlayerSlot( DPID dpID )
+{
+	BYTE	i;
+
+	// Find the player slot belonging to the dpID
+	// of a player that left the game and empty it.
+	for ( i = 0; i < 4; i++ )
+	{
+		if ( g_Players[i].dpID == dpID )
+		{
+			OutputDebugString( "Removing player.\n" );
+			g_Players[i].dwStatus = 0;
+			g_Players[i].dpID = 0;
+			RemoveNode( g_Players[i].lpNode );
+			g_Players[i].lpNode = NULL;
+		}
+	}
+	return 0xFF;
+}
+
 //This will create a sprite
-bool CreateSprite(  LPSPRITESET lpSprite,
+BOOL CreateSprite(  LPSPRITESET lpSprite,
                     LPDIRECTDRAW lpDD,
                     LPDIRECTDRAWSURFACE* lplpDDSSurface,
                     int stride,
@@ -183,14 +261,12 @@ bool CreateSprite(  LPSPRITESET lpSprite,
                     int width,
                     LPCSTR szBitmap,
                     LPDDCOLORKEY lpddck,
-                    DWORD dwFlags,
-					LPDDPIXELFORMAT lpddpfFormat )
+                    DWORD dwFlags )
 {
-    HRESULT ddrval;	//Our return value
+    HRESULT ddrval;
 
     // create a surface for the sprite and load the bitmap into it
-    (*lplpDDSSurface) = DDLoadBitmap( lpDD, szBitmap, 0, 0, 
-											dwFlags, lpddpfFormat );
+    (*lplpDDSSurface) = DDLoadBitmap( lpDD, szBitmap, 0, 0, dwFlags );
 
     if( (*lplpDDSSurface) == NULL )
     {
@@ -359,7 +435,7 @@ bool LoadGameArt( DWORD dwFlags, LPDDPIXELFORMAT lpddpfFormat )
 
 	//Create our ships sprite
     if FAILED( CreateSprite( &g_shipsprite, lpDD, &lpDDSShips, 10,
-                    32, 32, g_szShipBitmap, &ddck, dwFlags, lpddpfFormat ) ) 
+                    32, 32, g_szShipBitmap, &ddck, dwFlags ) ) 
     {   
         OutputDebugString( 
 			"LoadGameArt: Couldn't load ship sprite.\n" );
@@ -368,7 +444,7 @@ bool LoadGameArt( DWORD dwFlags, LPDDPIXELFORMAT lpddpfFormat )
 
 	//Create our shots sprite
     if FAILED( CreateSprite( &g_shotsprite, lpDD, &lpDDSShots, 4,
-                    3, 3, g_szShotBitmap, &ddck, dwFlags, lpddpfFormat ) ) 
+                    3, 3, g_szShotBitmap, &ddck, dwFlags ) ) 
     {   
         OutputDebugString( 
 			"LoadGameArt: Couldn't load shot sprite.\n" );
@@ -377,7 +453,7 @@ bool LoadGameArt( DWORD dwFlags, LPDDPIXELFORMAT lpddpfFormat )
 
 	//Create our ghost ships sprite
 	if FAILED( CreateSprite( &g_ghostsprite, lpDD, &lpDDSGhost, 10,
-                    32, 32, g_szGhostBitmap, &ddck, dwFlags, lpddpfFormat ) ) 
+                    32, 32, g_szGhostBitmap, &ddck, dwFlags ) ) 
     {   
         OutputDebugString( 
 			"LoadGameArt: Couldn't load ghost sprite.\n" );
@@ -392,27 +468,26 @@ bool LoadGameArt( DWORD dwFlags, LPDDPIXELFORMAT lpddpfFormat )
 HRESULT UpdateFrame( bool bFull )
 {
     char str[255];
-    DWORD time, time2;	//This will hold time values
-    HRESULT ddrval;		//This will hold our return value
+    DWORD time, time2;
+    HRESULT ddrval;
 
     // Update everyone's position
 	UpdateStates();
 
-	//Get the current time
 	time = timeGetTime();
-	
-	if( g_Players[0].lpNode->status != STATUS_HIT )
+	time2 = time - g_dwSyncTime;
+
+	// If the local player was hit, OR the sync
+	// interval has passed, send a sync message
+
+	if ( CheckForHits( g_Players[g_byPlayerSlot].lpNode ) ||
+									( time2 > SYNC_INTERVAL ) )
 	{
-		if(CheckForHits( g_Players[0].lpNode ))
-		{
-			//Load our hit sound
-			LoadStatic( lpds, HITWAVE);
-			// Play our hit sound
-			PlayStatic(2);
-		}
+//		OutputDebugString("Sending Sync.\n" );
+		g_dwSyncTime = time;
+		SendSyncMessage();
 	}
 
-	//Check if we can update the screen
 	if ( !bFull ) return TRUE;
 
 	// If it's ok to update the screen, do that too
@@ -423,7 +498,6 @@ HRESULT UpdateFrame( bool bFull )
         return ddrval;
     }
 
-	//Draw our shots and ghosts
     if FAILED( DrawSprites( lpDDSBack,  TRUE ) )
     {
         OutputDebugString( "UpdateFrame: Couldn't draw sprites.\n" );
@@ -431,24 +505,19 @@ HRESULT UpdateFrame( bool bFull )
     }
 
 	// Calculate and output the frame rate
-	//This would be omitted in a payware version
-    g_dwFrameCount++;	//We updated the frame so add to the frame number
-    time2 = time - g_dwFrameTime;	//Get the time since last reset	
-    //After 1 second reset the tie
-	if( time2 > 1000)
+
+    g_dwFrameCount++;
+    time2 = time - g_dwFrameTime;
+    if( time2 > 1000)
     {
-		//Evaluate frames per second
         g_dwFrames = ( g_dwFrameCount * 1000 ) / time2;
         g_dwFrameTime = timeGetTime();
         g_dwFrameCount = 0;
     }
-	//Print to the screen
     sprintf(str, "%d", g_dwFrames);
-	//Send the text through Direct Draw
     DDTextOut( lpDDSBack,str, RGB(0,0,0), RGB(255,255,0), 320, 20 );
 
-	//Try to flip our surface
-    if FAILED( FlipSurfaces( g_dwRenderSetup ) )
+    if FAILED( FlipSurfaces() )
     {
         OutputDebugString( "UpdateFrame: Couldn't flip.\n" );
         return ddrval;
@@ -458,9 +527,9 @@ HRESULT UpdateFrame( bool bFull )
 
 //This will create our ship in memory
 LPNODE CreateShip( double x, double y, double dx, 
-						double dy, int offset, int frame )
+						double dy, int offset, int frame, bool blocal )
 {
-    LPNODE ship;	//Our ship ode
+    LPNODE ship;	//Our ship node
 
     ship = (LPNODE) malloc( sizeof(NODE) );	//Allocate memory
     
@@ -468,16 +537,32 @@ LPNODE CreateShip( double x, double y, double dx,
     if ( ship == NULL )
         return ship;
 
+	//Setup ship values
     ship->frame = frame;
     ship->offset = offset;
+	ship->last_known_good_timeupdatey =
+	ship->last_known_good_timeupdatex = 0;
+	ship->sample_timeupdate =
     ship->timeupdate = timeGetTime();
     ship->dwtype = SPRITE_SHIP;
+	ship->last_known_goodx =
     ship->posx = x;
+	ship->last_known_goody =
     ship->posy = y;
     ship->velx = dx;
     ship->vely = dy;
 	ship->timedisabled = 0;
-	ship->state = UpdateShip;
+	ship->byinput = 0;
+
+	// Check who's ship it is and update accordingly
+	if ( blocal )
+	{
+		ship->state = UpdateShip;
+	}
+	else
+	{
+		ship->state = UpdateRemoteShip;
+	}
 
     ship->spriteset = &g_shipsprite;
 
@@ -497,14 +582,19 @@ LPNODE CreateShot( double x, double y, double dx, double dy, int offset )
 	if ( shot == NULL )
         return shot;
 
+	shot->last_known_good_timeupdatey =
+	shot->last_known_good_timeupdatex = 0;
     shot->frame = 0;
     shot->offset = offset;
     shot->dwtype = SPRITE_SHOT;
+	shot->last_known_goodx =
     shot->posx = x;
+	shot->last_known_goody =
     shot->posy = y;
     shot->velx = dx;
     shot->vely = dy;
     shot->timeborn = timeGetTime();
+	shot->sample_timeupdate =
     shot->timeupdate = shot->timeborn;
     shot->state = UpdateShot;
 
@@ -516,14 +606,109 @@ LPNODE CreateShot( double x, double y, double dx, double dy, int offset )
     return shot;
 }
 
-//This will update our shot values
+// Needed for dead navigation
+DWORD update_time( LPNODE ship,DWORD* lpdwTime,DWORD* delta )
+{
+    DWORD	dwTime, dwDelta;
+
+	dwTime = timeGetTime();	// Get the current system time
+
+	// Make sure there's a pointer to the time
+	if( lpdwTime )
+	{
+		*lpdwTime = dwTime;
+	}
+
+	// Update ship is nessecary
+	if( dwTime > ship->sample_timeupdate )
+	{
+		dwDelta = dwTime - ship->sample_timeupdate;
+		ship->timeupdate = dwTime;
+
+		if( dwDelta >= SAMPLE_RATE )
+		{
+			ship->sample_timeupdate = dwTime;
+			*delta = dwDelta;
+			return 1;
+		}
+		else
+		{
+			*delta = 0;
+			return 0;
+		}
+	}
+	else
+	{
+		ship->sample_timeupdate = dwTime;
+		*delta = 0;
+		return 0;
+	}
+}
+
+// Needed for dead reckoning
+void apply_delta( LPNODE ship, DWORD delta )
+{
+	ship->posx = ship->last_known_goodx + ( ship->velx * ship->last_known_good_timeupdatex / SAMPLE_RATE ) + ( ship->velx * ( delta / SAMPLE_RATE ) );
+    ship->posy = ship->last_known_goody + ( ship->vely * ship->last_known_good_timeupdatey / SAMPLE_RATE ) + ( ship->vely * ( delta / SAMPLE_RATE ) );
+
+	if( ship->posx != ship->last_known_goodx )
+	{
+		ship->last_known_good_timeupdatex += delta;
+	}
+	else
+	{
+		ship->last_known_good_timeupdatex = 0;
+	}
+	
+	if( ship->posy != ship->last_known_goody )
+	{
+		ship->last_known_good_timeupdatey += delta;
+	}
+	else
+	{
+		ship->last_known_good_timeupdatey = 0;
+	}
+
+    if ( ship->posx > SHIP_X )
+    {
+		ship->last_known_good_timeupdatex = 0;
+		ship->last_known_goodx = SHIP_X;
+        ship->posx = SHIP_X;
+        ship->velx = -ship->velx;
+    }
+
+    if ( ship->posx < 0 )
+    {
+		ship->last_known_good_timeupdatex = 0;
+		ship->last_known_goodx = 0;
+        ship->posx = 0;
+        ship->velx = -ship->velx;
+    }
+
+    if ( ship->posy > SHIP_Y )
+    {
+		ship->last_known_good_timeupdatey = 0;
+		ship->last_known_goody = SHIP_Y;
+        ship->posy = SHIP_Y;
+        ship->vely = -ship->vely;
+    }
+
+    if ( ship->posy < 0 )
+    {
+		ship->last_known_good_timeupdatey = 0;
+		ship->last_known_goody = 0;
+        ship->posy = 0;
+        ship->vely = -ship->vely;
+    }
+}
+
+//Update shots fired
 void UpdateShot( LPNODE shot )
 {
-    DWORD dwTime;		//The time
-    double FrameRatio;	//The Frame ratio
+    DWORD dwTime;
+	DWORD delta;
 
-    dwTime = timeGetTime();	//Record the time
-	FrameRatio = float( dwTime - shot->timeupdate ) / float( FRAME_RATE );
+	update_time( shot,&dwTime,&delta );
 
     // shots have a lifetime of SHOTLIFE ms
     if ( ( dwTime - shot->timeborn ) > SHOTLIFE )
@@ -532,84 +717,31 @@ void UpdateShot( LPNODE shot )
         return;
     }
 
-    // calculate a new position based on the time
-    // elapsed since the last update
-
-    shot->posx += ( shot->velx * FrameRatio );
-    shot->posy += ( shot->vely * FrameRatio );
-
-// Uncomment this section of code if you'd like shots
-// to dissappear when they hit the edge of the screen.
-// Move the comments to the next section, of course.
-/*
-    // shots dissapear if they go off the screen/window
-    if (  (shot->posx > SHOT_X ) ||
-            ( shot->posx < 0 ) ||
-            ( shot->posy > SHOT_Y ) ||
-            ( shot->posy < 0 ) )
-    {
-        RemoveNode( shot );
-        return;
-    }
-*/
-	// shots reflect off edges of playing field
-
-	if ( shot->posx > SHOT_X )
-    {
-        shot->posx = SHOT_X;
-        shot->velx = -shot->velx;
-    }
-
-    if ( shot->posx < 0 )
-    {
-        shot->posx = 0;
-        shot->velx = -shot->velx;
-    }
-
-    if ( shot->posy > SHOT_Y )
-    {
-        shot->posy = SHOT_Y;
-        shot->vely = -shot->vely;
-    }
-
-    if ( shot->posy < 0 )
-    {
-        shot->posy = 0;
-        shot->vely = -shot->vely;
-    }
+	if( delta != 0 )
+	{
+		apply_delta( shot,delta );
+	}
 }
 
 //Update our ship
 void UpdateShip( LPNODE ship )
 {
-    DWORD	dwTime, dwDelta;
+    DWORD	dwTime;
 	double	x, y, dx, dy;
-    double	FrameRatio;
+	DWORD delta;
 
-	//Get the time
-    dwTime = timeGetTime();
-	dwDelta = dwTime - ship->timeupdate;
+	update_time( ship,&dwTime,&delta );
 
-	//Check the frame ratio
-    FrameRatio = float ( dwDelta ) / 
-                            float ( FRAME_RATE );
-
-	//Set when to update the ship
-    ship->timeupdate = dwTime;
-
-	//See if the ship needs to be updated
 	if ( ( dwTime - ship->timeinput ) > INPUT_RATE )
 	{
 		ship->timeinput = dwTime;
 
-		//turn left?
 		if( g_byInput & KEY_LEFT )
 		{
 			ship->frame -= 1;
 			if( ship->frame < 0)
 				ship->frame = 39;
 		}
-		//turn right?
 		if( g_byInput & KEY_RIGHT )
 		{
 			ship->frame += 1;
@@ -617,48 +749,32 @@ void UpdateShip( LPNODE ship )
 				ship->frame = 0;
 		}
 
-		//go faster
 		if( g_byInput & KEY_THRUST )
 		{
-			ship->velx += Dirx[ship->frame] / 100;
-			ship->vely += Diry[ship->frame] / 100;
+			ship->velx += Dirx[ship->frame]/10;
+			ship->vely += Diry[ship->frame]/10;
+		}
+
+		// Only send a control message if one of the
+		// bits of interest has changed. We're only interested
+		// in maneuvering controls, firing is handled by a different
+		// message.
+
+		if ( ( g_byInput & SYNCKEYS ) != ( g_byLastInput & SYNCKEYS ) )
+		{
+			g_byLastInput = g_byInput;
+			SendControlMessage( g_byInput );
 		}
 	}
 
-	//adjust the position
-    ship->posx += ship->velx * FrameRatio;
-    ship->posy += ship->vely * FrameRatio;
+	if( delta != 0 )
+	{
+		apply_delta( ship,delta );
+	}
 
-	//Set the X position
-    if ( ship->posx > SHIP_X )
-    {
-        ship->posx = SHIP_X;
-        ship->velx = -ship->velx;
-    }
-
-    if ( ship->posx < 0 )
-    {
-        ship->posx = 0;
-        ship->velx = -ship->velx;
-    }
-
-	//Set the Y position
-    if ( ship->posy > SHIP_Y )
-    {
-        ship->posy = SHIP_Y;
-        ship->vely = -ship->vely;
-    }
-
-    if ( ship->posy < 0 )
-    {
-        ship->posy = 0;
-        ship->vely = -ship->vely;
-    }
-
-	//Fire torpedo #1!!
     if( g_byInput & KEY_FIRE )
     {
-		// You can't fire if you've been disabled, Doh!
+		// You can't fire if you've been disabled
 		if ( !( ship->timedisabled ) )
 		{
 			// Ships can only fire every SHOTFREQ ms.
@@ -674,12 +790,14 @@ void UpdateShip( LPNODE ship )
 				dy = ( Diry[ship->frame] * 7.0 ) + ship->vely;
 				// Add the shot to the linked list and send a message
 				CreateShot( x, y, dx, dy, 0 );
-				// Store the time the last shot was fired. 
-				ship->timeborn = timeGetTime();
 				//Load our shot sound
 				LoadStatic( lpds, SHOTWAVE);
-				// Play our shot
-				PlayStatic(1);
+				// Play our shot sound
+				PlayStatic(SHOTWAVE);
+
+				SendFireMessage( x, y, dx, dy );
+				// Store the time the last shot was fired. 
+				ship->timeborn = timeGetTime();	
 			}
 		}
     }
@@ -687,45 +805,74 @@ void UpdateShip( LPNODE ship )
 	// See if it's time to re-enable the ship
 	if ( ( dwTime - ( ship->timedisabled ) ) > DISABLEDTIME )
 	{
-		ship->offset = 0;
+		ship->offset = g_byPlayerSlot * 40;
 		ship->spriteset = &g_shipsprite;
 		ship->timedisabled = 0;
 		ship->status = STATUS_OK;
+		SendSyncMessage();
+	}
+    return;
+}
+
+// Update a remote ship
+void UpdateRemoteShip( LPNODE ship )
+{
+	DWORD dwTime;
+    DWORD delta;
+
+	update_time( ship,&dwTime,&delta );
+
+	if ( ( dwTime - ship->timeinput ) > INPUT_RATE )
+	{
+		ship->timeinput = dwTime;
+
+		if( ship->byinput & KEY_LEFT )
+		{
+			ship->frame -= 1;
+			if( ship->frame < 0)
+				ship->frame = 39;
+		}
+		if( ship->byinput & KEY_RIGHT )
+		{
+			ship->frame += 1;
+			if( ship->frame > 39 )
+				ship->frame = 0;
+		}
+		if( ship->byinput & KEY_THRUST )
+		{
+			ship->velx += Dirx[ship->frame] / 10;
+			ship->vely += Diry[ship->frame] / 10;
+		}
+	}
+
+	if( delta != 0 )
+	{
+		apply_delta( ship,delta );
 	}
 
     return;
 }
 
 //Flip surfaces to the screen.
-HRESULT FlipSurfaces( DWORD dwMode )
+HRESULT FlipSurfaces( void )
 {
-    HRESULT ddrval;	//The return value
+    HRESULT ddrval;
 
-	// Check what mode we're in
-	switch ( dwMode )
-	{
-		//If we can overlay then do it
-		case MODE_OVERLAY:
-			ddrval = lpDDSOverlay->Flip( NULL, DDFLIP_WAIT );
-			break;
-
-		//If they want full screen mode flip
-		case MODE_FULL:
-			// If we are fullscreen, call Flip as usual
-			ddrval = lpDDSPrimary->Flip( NULL, DDFLIP_WAIT );
-			break;
-
-		case MODE_WINDOWED:
-			// If we are in a window, use Blt instead of Flip.  We must use Blt
-			// because BltFast does not perform clipping.
-			ddrval = lpDDSPrimary->Blt( &g_rcWindow,
-					lpDDSBack,
-					NULL,
-					DDBLT_WAIT,
-					NULL );
-			break;
-	}
-
+    // If we are fullscreen, call Flip as usual
+    if ( g_bFullScreen )
+    {
+		ddrval = lpDDSPrimary->Flip( NULL, DDFLIP_WAIT );
+	}        
+	else
+    // If we are in a window, use Blt instead of Flip.  We must use Blt
+    // because BltFast does not perform clipping.
+    {
+        ddrval = lpDDSPrimary->Blt( &g_rcWindow,
+                lpDDSBack,
+                NULL,
+                DDBLT_WAIT,
+                NULL );
+    }
     return ddrval;
 }
 
@@ -837,5 +984,3 @@ HWND CreateFullScreenWindow(HANDLE hInstance,
 
     return hwnd;
 }
-
-

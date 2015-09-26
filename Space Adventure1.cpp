@@ -8,6 +8,7 @@
 #include "Sound.h"		//Our sound header
 #include "Static.h"		//Our header for satic buffers
 #include "space.h"		//Our space header
+#include "dptools.h"	//Our Direct Play header
 
 ////////////////////////////////////////////////////////////////////
 // Our Sound Variables
@@ -188,10 +189,7 @@ long FAR PASCAL WindowProc( HWND hWnd, UINT message,
         // pause screen, we could paint it here.
         break;
 
-/*********************************************************************
-* Not supported by some computers so we will comment it out
-**********************************************************************
-	case WM_SYSKEYUP:
+    case WM_SYSKEYUP:
         switch( wParam )
         {
             // handle ALT+ENTER ( fullscreen/windowed switch )
@@ -217,12 +215,12 @@ long FAR PASCAL WindowProc( HWND hWnd, UINT message,
                 g_bReInitialize = FALSE;
                 break;
         }
-		break;
-************************************************************************
-*/
-    case WM_DESTROY:
+        break;
+
+	case WM_DESTROY:
         if ( !g_bReInitialize )
         {
+			ShutDownDPSession();	
             PostQuitMessage( 0 );
         }
         return 0;
@@ -234,6 +232,9 @@ long FAR PASCAL WindowProc( HWND hWnd, UINT message,
 //Initialize Direct Draw
 bool DDInit( void )
 {
+	DWORD	dwOverlayStretch;
+	RECT	rc;
+
     // Use globals to intialize DD setup
 
 	if ( GetSystemMetrics( SM_CXSCREEN ) == 640 )
@@ -245,7 +246,24 @@ bool DDInit( void )
 		g_bFullScreen = TRUE;
 	}
 
-	//if they want full screen goto fullscreen
+	// If we're going to try to use overlays, we need to know
+	// the stretching factor first, to see if the current desktop
+	// mode can accomodate it.
+
+	dwOverlayStretch = DDCheckOverlay( NULL );
+	if ( dwOverlayStretch )
+	{	
+		// The required client area. We'll stretch in the Y
+		// direction as well, to maintain square sprites
+		SetRect( &rc, 0, 0, ( ( 640 * dwOverlayStretch ) / 1000 ),
+						( ( 480 * dwOverlayStretch ) / 1000 ) );
+
+		// Adjust the client area for window border, etc.
+		AdjustWindowRectEx( &rc,
+			WS_SYSMENU | WS_CAPTION | WS_MINIMIZEBOX,
+			FALSE, 0 );
+	}
+
 	if ( g_bFullScreen )
 	{
 		g_hwnd = CreateFullScreenWindow( g_hInstance, WindowProc );
@@ -264,36 +282,28 @@ bool DDInit( void )
         return FALSE;
     }
 
+/*		
+	if FAILED( DDCreateOverlay( lpDD, &lpDDSPrimary,
+							&lpDDSOverlay, &lpDDSBack ) )
+	{
+		OutputDebugString( "Overlay attempt failed.\n" );
+	}
+
+*/
     if ( g_bFullScreen )
     {
 	    if FAILED( DDFullConfigure( lpDD, &lpDDSPrimary, &lpDDSBack ) )
 	    {
             return FALSE;
         }
-		else
-		{
-			g_dwRenderSetup = MODE_FULL;
-		}
     }
     else
     {
         if FAILED( DDWinConfigure( lpDD, &lpDDSPrimary, &lpDDSBack,
-                                        &lpDDClipper, &lpDDSOverlay,
-										g_hwnd ) )
+                                        &lpDDClipper, g_hwnd ) )
         {
             return FALSE;
         }
-		else
-		{
-			if ( lpDDSOverlay )
-			{
-				g_dwRenderSetup = MODE_OVERLAY;
-			}
-			else
-			{
-				g_dwRenderSetup = MODE_WINDOWED;
-			}
-		}
     }
     return TRUE;
 }
@@ -301,7 +311,24 @@ bool DDInit( void )
 //setup our game
 static bool doInit( HANDLE hInstance, int nCmdShow )
 {
+	int rc;
+
     g_hInstance = hInstance;
+
+	// Attempt to initialize DirectPlay
+	rc = StartDPSession();
+
+	switch ( rc )
+	{
+		case -1:
+			// Something failed when attempting DirectPlay init
+			MessageBox( NULL, "DirectPlay Init FAILED", "ERROR", MB_OK );
+			// Fall through
+		case -2:
+			// The user pressed the cancel button.
+			OutputDebugString( "The user cancelled DPlay.\n" );
+			return FALSE;
+	}
 
 	// Attempt to initialize DirectDraw
     if FAILED( DDInit() ) 
@@ -341,14 +368,14 @@ int PASCAL WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
 	//Load our welcome message
 	LoadStatic( lpds, WELCOMEWAVE);
 	// Play our welcome message
-	PlayStatic(3);
+	PlayStatic(WELCOMEWAVE);
 
 	//Infinite look for message loop
 	while( 1 )
 	{
     	if( PeekMessage( &msg, NULL, 0, 0, PM_NOREMOVE ) )
     	{
-        	if( !GetMessage( &msg, NULL, 0, 0 ) )
+            if( !GetMessage( &msg, NULL, 0, 0 ) )
         	{
             	return msg.wParam;
         	}

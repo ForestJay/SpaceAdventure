@@ -25,6 +25,8 @@ typedef struct _NODE
  	struct _NODE*	prev;   
     DWORD           dwtype;
 	BYTE			status;
+	double			last_known_goodx;
+	double			last_known_goody;
 	double 			posx;                         
 	double 			posy;                            
 	double 			velx;                        
@@ -34,6 +36,9 @@ typedef struct _NODE
 	DWORD			timedisabled;
 	DWORD		 	timeborn;
     DWORD           timeupdate;
+	DWORD			last_known_good_timeupdatex;
+	DWORD			last_known_good_timeupdatey;
+	DWORD			sample_timeupdate;
 	DWORD			timeinput;
 	BYTE			byinput;
 	LPSTATE 		state;               
@@ -59,5 +64,7 @@ HRESULT DrawSprites( LPDIRECTDRAWSURFACE, bool );
 HRESULT DrawSprite( LPNODE, LPDIRECTDRAWSURFACE );
 void	AddNode ( LPNODE  );
 void	RemoveNode ( LPNODE );
+void	SyncData( LPNODE, LPNODE, BYTE );
+void	NodeInputData( BYTE, LPNODE	);
 
 #endif // SPRITES_H

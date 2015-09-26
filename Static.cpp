@@ -110,7 +110,7 @@ bool LoadStatic( LPDIRECTSOUND lpds,	//Pointer to Direct Sound
    -------------------------------------------------------- */
 
 
-void PlayStatic( int wavenumber )	//This number identifies the sound
+void PlayStatic( LPSTR lpzFileName )	//This name identifies the sound
 {
     HRESULT hr;	//The return result
 
@@ -127,22 +127,8 @@ void PlayStatic( int wavenumber )	//This number identifies the sound
 		//restore the buffer
         if ( SUCCEEDED( lpdsbStatic->Restore() ) )
         {
-			//Play the correct sound
-			if(wavenumber == 1)
-			{
-				if ( LoadStatic( lpds, SHOTWAVE ) )
+			if ( LoadStatic( lpds, lpzFileName ) )
 					lpdsbStatic->Play( 0, 0, 0 );
-			}
-			else if(wavenumber == 2)
-			{
-				if ( LoadStatic( lpds, HITWAVE ) )
-					lpdsbStatic->Play( 0, 0, 0 );
-			}
-			else
-			{
-				if ( LoadStatic( lpds, WELCOMEWAVE ) )
-					lpdsbStatic->Play( 0, 0, 0 );
-			}
         }
     }
 }

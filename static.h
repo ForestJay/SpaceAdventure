@@ -16,7 +16,7 @@ extern "C" {
 #include <dsound.h>		//The DirectSound library
 
 bool LoadStatic(LPDIRECTSOUND lpds, LPSTR lpzFileName);
-void PlayStatic(int);
+void PlayStatic(LPSTR);
 
 #ifdef __cplusplus
 }

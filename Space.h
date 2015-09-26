@@ -11,6 +11,8 @@
 #include <windows.h>	//The windows header
 #include <windowsx.h>	//The API header
 #include <ddraw.h>		//The direct draw header
+#include <dplay.h>		//The direct play header
+#include <dplobby.h>	//The direct play lobby header
 #include <stdlib.h>		//The C standard library
 #include <stdio.h>		//The C standard I/O library
 #include <stdarg.h>		//This allows variable number of arguments to be passed to a function
@@ -20,6 +22,7 @@
 #include "resource.h"
 #include "ddutil.h"
 #include "ddtools.h"
+#include "dptools.h"
 #include "static.h"
 #include "utility.h"
 #include "sprites.h"
@@ -82,9 +85,11 @@ extern PLAYERINFO 				g_Players[4];	//Info about players
 #define SHOT_Y      ( SCREEN_Y - 3 )
 
 #define FRAME_RATE		25		// 40 frames per second (ms)
-#define SHOTLIFE		2000	// lifetime of shote (ms)
+#define SAMPLE_RATE		25		// 40 frames per second (ms)
+#define SHOTLIFE		2000	// lifetime of shots (ms)
 #define SHOTFREQ		500		// time between shots (ms)
 #define DISABLEDTIME	4000	// time disabled after hit
+#define SYNC_INTERVAL	1000	// time between sync messages
 #define INPUT_RATE		25		// 40 times per second (ms)
 
 // Prototypes

@@ -19,8 +19,7 @@
  *
  */
 extern "C" IDirectDrawSurface * DDLoadBitmap(IDirectDraw *pdd, LPCSTR szBitmap, 
-                                                int dx, int dy, DWORD dwFlags, 
-												LPDDPIXELFORMAT lpddpfFormat )
+                                                int dx, int dy, DWORD dwFlags)
 {
     HBITMAP             hbm;
     BITMAP              bm;
@@ -30,12 +29,7 @@ extern "C" IDirectDrawSurface * DDLoadBitmap(IDirectDraw *pdd, LPCSTR szBitmap,
     //
     //  try to load the bitmap as a resource, if that fails, try it as a file
     //
-    hbm = (HBITMAP) LoadImage(GetModuleHandle(NULL), 
-		szBitmap, 
-		IMAGE_BITMAP, 
-		dx, 
-		dy, 
-		LR_CREATEDIBSECTION);
+    hbm = (HBITMAP)LoadImage(GetModuleHandle(NULL), szBitmap, IMAGE_BITMAP, dx, dy, LR_CREATEDIBSECTION);
 
     if (hbm == NULL)
         hbm = (HBITMAP)LoadImage(NULL, szBitmap, IMAGE_BITMAP, dx, dy, LR_LOADFROMFILE|LR_CREATEDIBSECTION);
@@ -53,22 +47,10 @@ extern "C" IDirectDrawSurface * DDLoadBitmap(IDirectDraw *pdd, LPCSTR szBitmap,
     //
     ZeroMemory(&ddsd, sizeof(ddsd));
     ddsd.dwSize = sizeof(ddsd);
-    ddsd.dwFlags = DDSD_CAPS | DDSD_HEIGHT | DDSD_WIDTH;
-    ddsd.ddsCaps.dwCaps = dwFlags;
+    ddsd.dwFlags = DDSD_CAPS | DDSD_HEIGHT |DDSD_WIDTH;
+    ddsd.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | dwFlags;
     ddsd.dwWidth = bm.bmWidth;
     ddsd.dwHeight = bm.bmHeight;
-
-	if ( lpddpfFormat )
-	{
-		ddsd.dwFlags = ddsd.dwFlags | DDSD_PIXELFORMAT;
-		ddsd.ddpfPixelFormat.dwFlags = lpddpfFormat->dwFlags;
-		ddsd.ddpfPixelFormat.dwFourCC = lpddpfFormat->dwFourCC;
-		ddsd.ddpfPixelFormat.dwRGBBitCount = lpddpfFormat->dwRGBBitCount;
-		ddsd.ddpfPixelFormat.dwRBitMask = lpddpfFormat->dwRBitMask;
-		ddsd.ddpfPixelFormat.dwGBitMask = lpddpfFormat->dwGBitMask;
-		ddsd.ddpfPixelFormat.dwBBitMask = lpddpfFormat->dwBBitMask;
-		ddsd.ddpfPixelFormat.dwRGBAlphaBitMask = lpddpfFormat->dwRGBAlphaBitMask;
-	}
 
     if (pdd->CreateSurface(&ddsd, &pdds, NULL) != DD_OK)
         return NULL;
@@ -95,17 +77,10 @@ HRESULT DDReLoadBitmap(IDirectDrawSurface *pdds, LPCSTR szBitmap)
     //
     //  try to load the bitmap as a resource, if that fails, try it as a file
     //
-    hbm = (HBITMAP)LoadImage(GetModuleHandle(NULL), 
-		szBitmap, 
-		IMAGE_BITMAP, 
-		0, 
-		0, 
-		LR_CREATEDIBSECTION);
+    hbm = (HBITMAP)LoadImage(GetModuleHandle(NULL), szBitmap, IMAGE_BITMAP, 0, 0, LR_CREATEDIBSECTION);
 
     if (hbm == NULL)
-        hbm = (HBITMAP)LoadImage(NULL, 
-		szBitmap, 
-		IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE|LR_CREATEDIBSECTION);
+        hbm = (HBITMAP)LoadImage(NULL, szBitmap, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE|LR_CREATEDIBSECTION);
 
     if (hbm == NULL)
         return E_FAIL;

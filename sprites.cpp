@@ -13,18 +13,21 @@
 #include "sprites.h"	
 #include "space.h"
 
+CRITICAL_SECTION    g_ListSection;	// Our critical section
+
 // Globals
 LPNODE g_bottom_node;
 LPNODE g_top_node;
 
-//Setup the Queue
+//Setup the Queue and the critical section
 void InitLinkedList( void )
 {
     g_bottom_node = NULL;
     g_top_node = NULL;
+    InitializeCriticalSection( &g_ListSection );
 }
 
-//Close the queue
+//Close the queue and delete the critical section
 void CloseLinkedList( void )
 {
 	LPNODE next_node = (LPNODE) NULL;	//The next node
@@ -38,6 +41,7 @@ void CloseLinkedList( void )
 
 	g_bottom_node = NULL;
 	g_top_node = NULL;
+	DeleteCriticalSection( &g_ListSection );
 }
 
 //Update node states
@@ -49,12 +53,15 @@ void UpdateStates( void )
     LPNODE next_node = (LPNODE) NULL;	//The next node
     LPNODE thenode;						//current node
 
+    EnterCriticalSection( &g_ListSection );
+
     for ( thenode=g_bottom_node; thenode!=(LPNODE)NULL; thenode=next_node )
     {
         next_node = thenode->next;
         if ( thenode->state ) thenode->state( thenode );
     }
 
+    LeaveCriticalSection( &g_ListSection );
 }
 
 //Check if the ship was shot
@@ -80,23 +87,34 @@ bool CheckForHits( LPNODE ship )
     LPNODE next_node = (LPNODE) NULL;	//The next node
     LPNODE thenode;						//The current node
 
-    for ( thenode=g_bottom_node; thenode!=(LPNODE)NULL; thenode=next_node )
-    {
-        next_node = thenode->next;
-		if ( thenode->dwtype == SPRITE_SHOT )
+    EnterCriticalSection( &g_ListSection );
+
+	if(ship->status != STATUS_HIT)
+	{
+		for ( thenode=g_bottom_node; thenode!=(LPNODE)NULL; thenode=next_node )
 		{
-			if ( CheckHit( ship,  thenode ) )
+			next_node = thenode->next;
+			if ( thenode->dwtype == SPRITE_SHOT )
 			{
-				// Disable the ship
-				ship->offset = 0;
-				ship->spriteset = &g_ghostsprite;
-				ship->status = STATUS_HIT;
-				ship->timedisabled = timeGetTime();
-				// No need to check further
-				return TRUE;		
+				if ( CheckHit( ship,  thenode ) )
+				{
+					// Disable the ship
+					ship->offset = 0;
+					ship->spriteset = &g_ghostsprite;
+					ship->status = STATUS_HIT;
+					ship->timedisabled = timeGetTime();
+					//Load our hit sound
+					LoadStatic( lpds, HITWAVE);
+					// Play our hit sound
+					PlayStatic(HITWAVE);
+					// No need to check further
+					LeaveCriticalSection( &g_ListSection );
+					return TRUE;		
+				}
 			}
 		}
-    }
+	}
+    LeaveCriticalSection( &g_ListSection );
 	return FALSE;
 }
 
@@ -112,6 +130,8 @@ HRESULT DrawSprites(
     LPNODE	next_node = (LPNODE) NULL;	//The next node
     LPNODE	thenode;					//The current node
     HRESULT ddrval;						//The return value
+
+    EnterCriticalSection( &g_ListSection );
 
     if ( bDrawOrder )
 
@@ -136,6 +156,8 @@ HRESULT DrawSprites(
             if FAILED( ddrval ) return ddrval;
         }
     }
+
+    LeaveCriticalSection( &g_ListSection );
 
     return TRUE;
 }
@@ -183,6 +205,8 @@ void AddNode (
               LPNODE newNode    // the node to be added
               )
 {
+    EnterCriticalSection( &g_ListSection );
+
     if (g_bottom_node == (LPNODE) NULL )
     {
         g_bottom_node = newNode;
@@ -195,6 +219,8 @@ void AddNode (
     }
     g_top_node = newNode;
     newNode->next = (LPNODE) NULL;
+
+    LeaveCriticalSection( &g_ListSection );
 }
 
 //Delete a node
@@ -202,6 +228,8 @@ void RemoveNode(
                 LPNODE node     // the node to be removed
                 )
 {
+    EnterCriticalSection( &g_ListSection );
+
     if (node == g_bottom_node)
     {
         g_bottom_node = node->next;
@@ -221,5 +249,56 @@ void RemoveNode(
         node->next->prev = node->prev;
     }
     free( node );
+
+    LeaveCriticalSection( &g_ListSection );
+
 }
 
+void SyncData(
+                 LPNODE     sourcenode, // source for data
+                 LPNODE     destnode,    // destination for data
+				 BYTE		byPlayerSlot
+                 )
+{
+	// Get or set data in the linked
+	// list in a thread-safe way.
+
+    EnterCriticalSection( &g_ListSection );
+
+    destnode->last_known_goodx =
+    destnode->posx = sourcenode->posx;                         
+	destnode->last_known_goody =
+    destnode->posy = sourcenode->posy;
+    destnode->velx = sourcenode->velx;
+    destnode->vely = sourcenode->vely;
+	destnode->status = sourcenode->status;
+    destnode->frame = sourcenode->frame;
+	destnode->last_known_good_timeupdatey =
+	destnode->last_known_good_timeupdatex = 0;
+	destnode->sample_timeupdate =
+	destnode->timeupdate = timeGetTime();
+		
+	if ( destnode->status == STATUS_HIT )
+	{
+		destnode->offset = 0;
+		destnode->spriteset = &g_ghostsprite;
+	}
+	else
+	{
+		destnode->offset = byPlayerSlot * 40;
+		destnode->spriteset = &g_shipsprite;
+	}
+
+    LeaveCriticalSection( &g_ListSection );
+}
+
+void NodeInputData( BYTE	byInput,	// new input value
+					LPNODE	destnode	// destination for data
+					)
+{
+    EnterCriticalSection( &g_ListSection );
+    
+    destnode->byinput = byInput;                       
+	
+    LeaveCriticalSection( &g_ListSection );
+}

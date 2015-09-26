@@ -1,4 +1,5 @@
 // gameutil.h - for Space Adventure 
+// gameutil.h
 // East Coast Games
 // Forest J. Handford
 // Copyright (c) 1998 - 1999
@@ -10,6 +11,7 @@
 typedef struct
 {  
     DWORD           dwStatus;
+	DPID			dpID;
 	LPNODE			lpNode;
 }PLAYERINFO;
 typedef PLAYERINFO* LPPLAYERINFO;
@@ -19,9 +21,12 @@ typedef PLAYERINFO* LPPLAYERINFO;
 void	DDRelease( void );
 void	CleanUp( void );
 bool	GameInit( void );
-bool	CreateSprite(  LPSPRITESET, LPDIRECTDRAW lpDD,
-						LPDIRECTDRAWSURFACE, int, int, int, LPCSTR,
-						LPDDCOLORKEY, DWORD, LPDDPIXELFORMAT );
+BYTE	FindPlayerSlot( void );
+void	FillPlayerSlot( BYTE i, DPID dpID );
+BYTE	EmptyPlayerSlot( DPID dpID );
+//bool	CreateSprite(  LPSPRITESET, LPDIRECTDRAW lpDD,
+//						LPDIRECTDRAWSURFACE, int, int, int, LPCSTR,
+//						LPDDCOLORKEY, DWORD, LPDDPIXELFORMAT );
 HRESULT RestoreSprite( LPSPRITESET, LPCSTR );
 HRESULT RestoreSurfaces( void );
 void	AttemptRestore( void );
@@ -30,10 +35,11 @@ bool	CreatePalette( LPDIRECTDRAW, LPDIRECTDRAWPALETTE,
 bool	LoadGameArt( DWORD, LPDDPIXELFORMAT );
 HRESULT UpdateFrame( bool );
 void	UpdateShot( LPNODE );
-LPNODE	CreateShip( double, double, double, double, int, int );
+LPNODE	CreateShip( double, double, double, double, int, int, bool );
 LPNODE 	CreateShot( double, double, double, double, int );
 void	UpdateShip( LPNODE );
-HRESULT FlipSurfaces( DWORD );
+void	UpdateRemoteShip( LPNODE  );
+HRESULT FlipSurfaces( void );
 HWND	CreateDesktopWindow( HANDLE, WNDPROC, DWORD, DWORD );
 HWND	CreateFullScreenWindow( HANDLE, WNDPROC );
 

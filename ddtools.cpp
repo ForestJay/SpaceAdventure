@@ -284,7 +284,6 @@ HRESULT DDWinConfigure( LPDIRECTDRAW lpDD,
 							LPDIRECTDRAWSURFACE* lplpDDSPrimary,
 							LPDIRECTDRAWSURFACE* lplpDDSBack,
 							LPDIRECTDRAWCLIPPER* lplpDDClipper,
-							LPDIRECTDRAWSURFACE* lplpDDOverlay,
 							HWND hWnd )
 {
     HRESULT	ddrval;	//The return value
