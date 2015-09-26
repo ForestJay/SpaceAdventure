@@ -6,6 +6,7 @@
 #define IDJOIN                          4
 #define IDD_CONNECT                     102
 #define IDI_ICON1                       106
+#define IDC_LIST1                       1002	
 #define IDC_SESSIONS                    1000
 #define IDC_CONNECTIONS                 1005
 #define IDC_SESSIONNAME                 1009

@@ -1,7 +1,7 @@
-// gameutil.h - for Space Adventure 1
+// gameutil.h - for Space Adventure 
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
 #ifndef GAMEUTIL_H
 #define GAMEUTIL_H

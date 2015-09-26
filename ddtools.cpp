@@ -1,7 +1,7 @@
-// ddtools.cpp for Space Adventure 1
+// ddtools.cpp for Space Adventure 
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
 #define WIN32_LEAN_AND_MEAN	// Tell the proccessor we want fast code
 #include <windows.h>		// The windows header

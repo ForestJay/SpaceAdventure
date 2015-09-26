@@ -1,7 +1,7 @@
-// sprites.h - for Space Adventure 1
+// sprites.h - for Space Adventure 
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
 #ifndef SPRITES_H
 #define SPRITES_H

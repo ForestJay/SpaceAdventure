@@ -1,7 +1,7 @@
-// gameutil.cpp - for Space Adventure 1
+// gameutil.cpp - for Space Adventure 
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
 #include "space.h"	// Our header
 
@@ -400,9 +400,17 @@ HRESULT UpdateFrame( bool bFull )
 
 	//Get the current time
 	time = timeGetTime();
-
-	//Check if the player has been hit
-	CheckForHits( g_Players[0].lpNode );
+	
+	if( g_Players[0].lpNode->status != STATUS_HIT )
+	{
+		if(CheckForHits( g_Players[0].lpNode ))
+		{
+			//Load our hit sound
+			LoadStatic( lpds, HITWAVE);
+			// Play our hit sound
+			PlayStatic(2);
+		}
+	}
 
 	//Check if we can update the screen
 	if ( !bFull ) return TRUE;
@@ -667,7 +675,11 @@ void UpdateShip( LPNODE ship )
 				// Add the shot to the linked list and send a message
 				CreateShot( x, y, dx, dy, 0 );
 				// Store the time the last shot was fired. 
-				ship->timeborn = timeGetTime();	
+				ship->timeborn = timeGetTime();
+				//Load our shot sound
+				LoadStatic( lpds, SHOTWAVE);
+				// Play our shot
+				PlayStatic(1);
 			}
 		}
     }

@@ -1,7 +1,7 @@
-// space.h - for Space Adventure 1
+// Space.h
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
 #define NAME "Space Adventure"	//The name of the game
 #define TITLE "Space Adventure"	//The title of our game
@@ -20,14 +20,16 @@
 #include "resource.h"
 #include "ddutil.h"
 #include "ddtools.h"
+#include "static.h"
 #include "utility.h"
 #include "sprites.h"
 #include "gameutil.h"
 
 // Externals
 
-extern LPDIRECTDRAW				lpDD;	//Pointer to Direct Draw
-extern LPDIRECTDRAWSURFACE		lpDDSPrimary;  //Pointer to the Primary surface
+extern LPDIRECTSOUND			lpds;			//Pointer to DirectSound
+extern LPDIRECTDRAW				lpDD;			//Pointer to Direct Draw
+extern LPDIRECTDRAWSURFACE		lpDDSPrimary;   //Pointer to the Primary surface
 extern LPDIRECTDRAWSURFACE		lpDDSBack;      //Pointer to the back buffer
 extern LPDIRECTDRAWSURFACE		lpDDSOverlay;	//Pointer to the overlay
 extern LPDIRECTDRAWSURFACE		lpDDSShips;		//Pointer to the ships

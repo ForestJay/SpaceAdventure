@@ -1,9 +1,20 @@
-// Space Adventure1.cpp - for Space Adventure 1
+// Space Adventure1.cpp - for Space Adventure
 // East Coast Games
 // Forest J. Handford
-// Copyright (c) 1998
+// Copyright (c) 1998 - 1999
 ////////////////////////////
-#include "space.h"
+#include <windowsx.h>	//Windows API header
+#include <dsound.h>		//The DirectSound header
+#include "Sound.h"		//Our sound header
+#include "Static.h"		//Our header for satic buffers
+#include "space.h"		//Our space header
+
+////////////////////////////////////////////////////////////////////
+// Our Sound Variables
+////////////////////////////////////////////////////////////////////
+extern LPDIRECTSOUND        lpds;	//Pointer to DirectSound
+extern LPDIRECTSOUNDBUFFER  lpdsb;	//Pointer to DirectSound buffer
+GUID                        *pguid;	//The user interface
 
 LPDIRECTDRAW            lpDD;			//Our Direct Draw pointer
 LPDIRECTDRAWSURFACE     lpDDSPrimary;	//Our pointer to the primary buffer
@@ -177,7 +188,10 @@ long FAR PASCAL WindowProc( HWND hWnd, UINT message,
         // pause screen, we could paint it here.
         break;
 
-    case WM_SYSKEYUP:
+/*********************************************************************
+* Not supported by some computers so we will comment it out
+**********************************************************************
+	case WM_SYSKEYUP:
         switch( wParam )
         {
             // handle ALT+ENTER ( fullscreen/windowed switch )
@@ -203,8 +217,9 @@ long FAR PASCAL WindowProc( HWND hWnd, UINT message,
                 g_bReInitialize = FALSE;
                 break;
         }
-        break;
-
+		break;
+************************************************************************
+*/
     case WM_DESTROY:
         if ( !g_bReInitialize )
         {
@@ -319,6 +334,14 @@ int PASCAL WinMain( HINSTANCE hInstance, HINSTANCE hPrevInstance,
     }
 
 	g_dwFrameTime = timeGetTime();
+
+	//Initialize DirectSound
+	InitDSound( g_hwnd, hInstance, pguid);
+
+	//Load our welcome message
+	LoadStatic( lpds, WELCOMEWAVE);
+	// Play our welcome message
+	PlayStatic(3);
 
 	//Infinite look for message loop
 	while( 1 )
